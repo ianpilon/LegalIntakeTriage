@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KnowledgeArticleCard } from "@/components/KnowledgeArticleCard";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Search, Loader2 } from "lucide-react";
+import { ArrowLeft, Search, Loader2, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 const categories = ["All", "Contracts", "Marketing", "Privacy", "Employment", "IP"];
@@ -30,15 +30,24 @@ export default function KnowledgeBase() {
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => setLocation("/")}
-            className="mb-4"
-            data-testid="button-back"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setLocation("/")}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/admin/knowledge")}
+              data-testid="button-admin"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Manage Articles
+            </Button>
+          </div>
           <h1 className="text-3xl font-bold mb-2">Knowledge Base</h1>
           <p className="text-muted-foreground">
             Browse legal policies, templates, and frequently asked questions
