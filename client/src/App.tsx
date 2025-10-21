@@ -8,6 +8,7 @@ import DirectPath from "@/pages/DirectPath";
 import GuidedDiscovery from "@/pages/GuidedDiscovery";
 import KnowledgeBase from "@/pages/KnowledgeBase";
 import ArticleDetail from "@/pages/ArticleDetail";
+import KnowledgeBaseAdmin from "@/pages/KnowledgeBaseAdmin";
 import MyRequests from "@/pages/MyRequests";
 import LegalInbox from "@/pages/LegalInbox";
 import RequestSubmitted from "@/pages/RequestSubmitted";
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/guided" component={GuidedDiscovery} />
       <Route path="/knowledge" component={KnowledgeBase} />
       <Route path="/knowledge/:slug" component={ArticleDetail} />
+      <Route path="/admin/knowledge" component={KnowledgeBaseAdmin} />
       <Route path="/my-requests" component={MyRequests} />
       <Route path="/legal-inbox" component={LegalInbox} />
       <Route path="/request-submitted" component={RequestSubmitted} />

@@ -4,6 +4,22 @@
 
 A conversational AI-powered legal intake and triage platform that intelligently routes legal requests based on user confidence levels. The system features two distinct paths: a fast-track "Direct Path" for confident users who know exactly what they need, and a "Guided Discovery" conversational flow for users who need help articulating their legal needs. The platform uses AI to analyze confidence levels, perform automated triage, detect urgency, and route requests to appropriate attorneys while providing self-service resources through an integrated knowledge base.
 
+## Recent Updates (October 2025)
+
+**Knowledge Base Admin & AI Integration**
+- Added admin interface at `/admin/knowledge` for creating, editing, and deleting company policy articles
+- AI now automatically searches knowledge base during conversations and references relevant company policies
+- Flexible search system extracts meaningful words from user messages (filters stop words, preserves legal acronyms ≥2 chars)
+- Example flow: Admin uploads "NDA Guidelines" → User asks "what about NDAs?" → AI cites the company's NDA policy
+- API endpoints: POST/PATCH/DELETE `/api/knowledge` for article CRUD operations
+- Conversation endpoint enhanced to search KB and include relevant articles in AI context
+
+**Database Migration**
+- Migrated from in-memory storage to PostgreSQL for persistent data storage
+- All legal requests, conversations, knowledge articles, and attorney profiles now persist across restarts
+- DatabaseStorage implementation using Drizzle ORM and Neon serverless driver
+- Reference numbers auto-generated with format REQ-YYYY-#### ensuring uniqueness
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

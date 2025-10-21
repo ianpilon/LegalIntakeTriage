@@ -141,12 +141,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: msg.content
         }));
 
-        const aiResponse = await generateConversationResponse(conversationHistory);
+        const userMessage = message.content;
+        const stopWords = ["the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is", "are", "was", "were", "been", "be", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "i", "you", "we", "they", "it", "my", "our", "your"];
+        const searchWords = userMessage
+          .toLowerCase()
+          .replace(/[^\w\s]/g, " ")
+          .split(/\s+/)
+          .filter(word => word.length >= 2 && !stopWords.includes(word));
+        
+        let relevantArticles: Array<{ title: string; excerpt: string; content: string; category: string }> = [];
+        if (searchWords.length > 0) {
+          const searchQuery = searchWords.join(" ");
+          console.log(`[KB Search] User message: "${userMessage}"`);
+          console.log(`[KB Search] Extracted words: ${JSON.stringify(searchWords)}`);
+          console.log(`[KB Search] Search query: "${searchQuery}"`);
+          const articles = await storage.searchKnowledgeArticles(searchQuery);
+          console.log(`[KB Search] Found ${articles.length} articles`);
+          if (articles.length > 0) {
+            console.log(`[KB Search] Top articles: ${articles.slice(0, 2).map(a => a.title).join(", ")}`);
+          }
+          relevantArticles = articles.slice(0, 2).map(article => ({
+            title: article.title,
+            excerpt: article.excerpt,
+            content: article.content,
+            category: article.category
+          }));
+        }
+
+        const aiResponse = await generateConversationResponse(conversationHistory, relevantArticles);
         const assistantMessage = await storage.createConversationMessage({
           requestId: message.requestId,
           role: "assistant",
           content: aiResponse,
-          metadata: {}
+          metadata: { usedKnowledgeBase: relevantArticles.length > 0, articleTitles: relevantArticles.map(a => a.title) }
         });
 
         return res.json({ userMessage: message, assistantMessage });
@@ -230,6 +257,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating article feedback:", error);
       res.status(500).json({ error: "Failed to update feedback" });
+    }
+  });
+
+  app.post("/api/knowledge", async (req, res) => {
+    try {
+      const article = await storage.createKnowledgeArticle(req.body);
+      res.status(201).json(article);
+    } catch (error) {
+      console.error("Error creating article:", error);
+      res.status(500).json({ error: "Failed to create article" });
+    }
+  });
+
+  app.patch("/api/knowledge/:id", async (req, res) => {
+    try {
+      const article = await storage.updateKnowledgeArticle(req.params.id, req.body);
+      if (!article) {
+        return res.status(404).json({ error: "Article not found" });
+      }
+      res.json(article);
+    } catch (error) {
+      console.error("Error updating article:", error);
+      res.status(500).json({ error: "Failed to update article" });
+    }
+  });
+
+  app.delete("/api/knowledge/:id", async (req, res) => {
+    try {
+      await storage.deleteKnowledgeArticle(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting article:", error);
+      res.status(500).json({ error: "Failed to delete article" });
     }
   });
 

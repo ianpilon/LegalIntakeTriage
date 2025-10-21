@@ -172,14 +172,19 @@ export async function generateRequestSummary(request: {
   }
 }
 
-export async function generateConversationResponse(conversationHistory: { role: string; content: string }[]): Promise<string> {
+export interface KnowledgeArticleContext {
+  title: string;
+  excerpt: string;
+  content: string;
+  category: string;
+}
+
+export async function generateConversationResponse(
+  conversationHistory: { role: string; content: string }[],
+  relevantArticles: KnowledgeArticleContext[] = []
+): Promise<string> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `You are a helpful legal intake assistant conducting a guided discovery conversation. 
+    let systemPrompt = `You are a helpful legal intake assistant conducting a guided discovery conversation. 
 Your goal is to understand the user's situation through natural conversation:
 - Ask one clear, specific question at a time
 - Build on previous answers
@@ -193,7 +198,28 @@ Ask about:
 3. Data/privacy implications
 4. Third-party involvement
 5. Geographic scope
-6. Timeline/urgency`
+6. Timeline/urgency`;
+
+    if (relevantArticles.length > 0) {
+      systemPrompt += `\n\nIMPORTANT: When answering questions, reference our company policies and knowledge base articles when relevant:
+
+${relevantArticles.map(article => `
+**${article.title}** (${article.category})
+${article.excerpt}
+
+Key points from policy:
+${article.content.substring(0, 500)}...
+`).join('\n---\n')}
+
+When the user's question relates to these policies, incorporate them naturally into your response and let them know we have official guidance on this topic.`;
+    }
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
         },
         ...conversationHistory.map(msg => ({
           role: msg.role as "user" | "assistant" | "system",

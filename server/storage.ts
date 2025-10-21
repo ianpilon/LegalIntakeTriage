@@ -36,7 +36,11 @@ export interface IStorage {
   
   getAllKnowledgeArticles(): Promise<KnowledgeArticle[]>;
   getKnowledgeArticleBySlug(slug: string): Promise<KnowledgeArticle | undefined>;
+  getKnowledgeArticle(id: string): Promise<KnowledgeArticle | undefined>;
   searchKnowledgeArticles(query: string): Promise<KnowledgeArticle[]>;
+  createKnowledgeArticle(article: InsertKnowledgeArticle): Promise<KnowledgeArticle>;
+  updateKnowledgeArticle(id: string, updates: Partial<KnowledgeArticle>): Promise<KnowledgeArticle | undefined>;
+  deleteKnowledgeArticle(id: string): Promise<void>;
   updateArticleStats(id: string, helpful: boolean): Promise<void>;
   
   getAllAttorneys(): Promise<Attorney[]>;
@@ -369,6 +373,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(knowledgeArticles.slug, slug));
     
     return article || undefined;
+  }
+
+  async getKnowledgeArticle(id: string): Promise<KnowledgeArticle | undefined> {
+    const [article] = await db
+      .select()
+      .from(knowledgeArticles)
+      .where(eq(knowledgeArticles.id, id));
+    
+    return article || undefined;
+  }
+
+  async createKnowledgeArticle(insertArticle: InsertKnowledgeArticle): Promise<KnowledgeArticle> {
+    const [article] = await db
+      .insert(knowledgeArticles)
+      .values(insertArticle)
+      .returning();
+    
+    return article;
+  }
+
+  async updateKnowledgeArticle(id: string, updates: Partial<KnowledgeArticle>): Promise<KnowledgeArticle | undefined> {
+    const [updated] = await db
+      .update(knowledgeArticles)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(knowledgeArticles.id, id))
+      .returning();
+    
+    return updated || undefined;
+  }
+
+  async deleteKnowledgeArticle(id: string): Promise<void> {
+    await db
+      .delete(knowledgeArticles)
+      .where(eq(knowledgeArticles.id, id));
   }
 
   async searchKnowledgeArticles(query: string): Promise<KnowledgeArticle[]> {
