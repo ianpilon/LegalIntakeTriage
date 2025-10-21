@@ -7,21 +7,28 @@ import {
   type InsertKnowledgeArticle,
   type Attorney,
   type InsertAttorney,
+  type User,
+  type UpsertUser,
   RequestStatus,
   RequestCategory,
   legalRequests,
   conversationMessages,
   knowledgeArticles,
-  attorneys
+  attorneys,
+  users
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, sql, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  
   createLegalRequest(request: InsertLegalRequest): Promise<LegalRequest>;
   getLegalRequest(id: string): Promise<LegalRequest | undefined>;
   getAllLegalRequests(): Promise<LegalRequest[]>;
+  getUserLegalRequests(userId: string): Promise<LegalRequest[]>;
   updateLegalRequest(id: string, updates: Partial<LegalRequest>): Promise<LegalRequest | undefined>;
   
   createConversationMessage(message: InsertConversationMessage): Promise<ConversationMessage>;
@@ -252,6 +259,26 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
   async createLegalRequest(insertRequest: InsertLegalRequest): Promise<LegalRequest> {
     const referenceNumber = `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000).padStart(4, '0')}`;
     
@@ -279,6 +306,16 @@ export class DatabaseStorage implements IStorage {
     const requests = await db
       .select()
       .from(legalRequests)
+      .orderBy(desc(legalRequests.createdAt));
+    
+    return requests;
+  }
+
+  async getUserLegalRequests(userId: string): Promise<LegalRequest[]> {
+    const requests = await db
+      .select()
+      .from(legalRequests)
+      .where(eq(legalRequests.userId, userId))
       .orderBy(desc(legalRequests.createdAt));
     
     return requests;
