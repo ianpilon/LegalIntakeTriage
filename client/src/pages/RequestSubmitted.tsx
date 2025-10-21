@@ -3,11 +3,58 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AttorneyCard } from "@/components/AttorneyCard";
 import { RequestTimeline } from "@/components/RequestTimeline";
-import { CheckCircle2, Home, FileText } from "lucide-react";
-import { RequestStatus } from "@shared/schema";
+import { CheckCircle2, Home, FileText, Loader2 } from "lucide-react";
+import { RequestStatus, type LegalRequest, type Attorney, type RequestStatusType } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 export default function RequestSubmitted() {
   const [, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const requestId = searchParams.get("id");
+
+  const { data: request, isLoading: requestLoading } = useQuery<LegalRequest>({
+    queryKey: [`/api/requests/${requestId}`],
+    enabled: !!requestId
+  });
+
+  const { data: attorney, isLoading: attorneyLoading } = useQuery<Attorney>({
+    queryKey: [`/api/attorneys/${request?.assignedAttorneyId}`],
+    enabled: !!request?.assignedAttorneyId
+  });
+
+  if (!requestId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-muted-foreground">No request ID provided</p>
+          <Button onClick={() => setLocation("/")} className="mt-4">
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (requestLoading || attorneyLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!request) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <p className="text-muted-foreground">Request not found</p>
+          <Button onClick={() => setLocation("/")} className="mt-4">
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -26,35 +73,28 @@ export default function RequestSubmitted() {
           <div className="flex items-center justify-between mb-6 pb-6 border-b">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Reference Number</p>
-              <p className="text-xl font-bold" data-testid="text-reference-number">REQ-2024-004</p>
+              <p className="text-xl font-bold" data-testid="text-reference-number">{request.referenceNumber}</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground mb-1">Expected Response</p>
-              <p className="font-semibold">2-3 business days</p>
+              <p className="font-semibold">{request.expectedTimeline || "2-3 business days"}</p>
             </div>
           </div>
 
           <div className="mb-6">
             <h3 className="font-semibold mb-4">Request Status</h3>
-            <RequestTimeline currentStatus={RequestStatus.SUBMITTED} />
+            <RequestTimeline currentStatus={request.status as RequestStatusType} />
           </div>
 
-          <div>
-            <h3 className="font-semibold mb-4">Assigned Attorney</h3>
-            <AttorneyCard
-              attorney={{
-                id: "att-1",
-                name: "Sarah Johnson",
-                email: "sarah@company.com",
-                title: "Senior Contracts Attorney",
-                photoUrl: "",
-                expertise: ["Contracts", "Vendor Agreements"],
-                availability: "available",
-                activeRequestCount: 3
-              }}
-              expectedTimeline="2-3 business days"
-            />
-          </div>
+          {attorney && (
+            <div>
+              <h3 className="font-semibold mb-4">Assigned Attorney</h3>
+              <AttorneyCard
+                attorney={attorney}
+                expectedTimeline={request.expectedTimeline || "2-3 business days"}
+              />
+            </div>
+          )}
         </Card>
 
         <Card className="p-6 bg-muted/20 mb-6">
@@ -66,7 +106,7 @@ export default function RequestSubmitted() {
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>
-              <span>Sarah will review your request and may reach out if more information is needed</span>
+              <span>{attorney?.name} will review your request and may reach out if more information is needed</span>
             </li>
             <li className="flex gap-2">
               <span className="text-primary">•</span>

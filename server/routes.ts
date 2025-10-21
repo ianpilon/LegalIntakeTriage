@@ -253,6 +253,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/attorneys/:id", async (req, res) => {
+    try {
+      const attorney = await storage.getAttorney(req.params.id);
+      if (!attorney) {
+        return res.status(404).json({ error: "Attorney not found" });
+      }
+      res.json(attorney);
+    } catch (error) {
+      console.error("Error fetching attorney:", error);
+      res.status(500).json({ error: "Failed to fetch attorney" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

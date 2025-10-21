@@ -8,9 +8,15 @@ import {
   type Attorney,
   type InsertAttorney,
   RequestStatus,
-  RequestCategory
+  RequestCategory,
+  legalRequests,
+  conversationMessages,
+  knowledgeArticles,
+  attorneys
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc, sql, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   createLegalRequest(request: InsertLegalRequest): Promise<LegalRequest>;
@@ -245,4 +251,145 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  async createLegalRequest(insertRequest: InsertLegalRequest): Promise<LegalRequest> {
+    const referenceNumber = `REQ-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000).padStart(4, '0')}`;
+    
+    const [request] = await db
+      .insert(legalRequests)
+      .values({
+        ...insertRequest,
+        referenceNumber
+      })
+      .returning();
+    
+    return request;
+  }
+
+  async getLegalRequest(id: string): Promise<LegalRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(legalRequests)
+      .where(eq(legalRequests.id, id));
+    
+    return request || undefined;
+  }
+
+  async getAllLegalRequests(): Promise<LegalRequest[]> {
+    const requests = await db
+      .select()
+      .from(legalRequests)
+      .orderBy(desc(legalRequests.createdAt));
+    
+    return requests;
+  }
+
+  async updateLegalRequest(id: string, updates: Partial<LegalRequest>): Promise<LegalRequest | undefined> {
+    const [updated] = await db
+      .update(legalRequests)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(legalRequests.id, id))
+      .returning();
+    
+    return updated || undefined;
+  }
+
+  async createConversationMessage(insertMessage: InsertConversationMessage): Promise<ConversationMessage> {
+    const [message] = await db
+      .insert(conversationMessages)
+      .values(insertMessage)
+      .returning();
+    
+    return message;
+  }
+
+  async getConversationMessages(requestId: string): Promise<ConversationMessage[]> {
+    const messages = await db
+      .select()
+      .from(conversationMessages)
+      .where(eq(conversationMessages.requestId, requestId))
+      .orderBy(conversationMessages.createdAt);
+    
+    return messages;
+  }
+
+  async getAllKnowledgeArticles(): Promise<KnowledgeArticle[]> {
+    const articles = await db
+      .select()
+      .from(knowledgeArticles)
+      .orderBy(desc(knowledgeArticles.viewCount));
+    
+    return articles;
+  }
+
+  async getKnowledgeArticleBySlug(slug: string): Promise<KnowledgeArticle | undefined> {
+    const [article] = await db
+      .select()
+      .from(knowledgeArticles)
+      .where(eq(knowledgeArticles.slug, slug));
+    
+    return article || undefined;
+  }
+
+  async searchKnowledgeArticles(query: string): Promise<KnowledgeArticle[]> {
+    const articles = await db
+      .select()
+      .from(knowledgeArticles)
+      .where(
+        or(
+          ilike(knowledgeArticles.title, `%${query}%`),
+          ilike(knowledgeArticles.excerpt, `%${query}%`),
+          ilike(knowledgeArticles.content, `%${query}%`)
+        )
+      );
+    
+    return articles;
+  }
+
+  async updateArticleStats(id: string, helpful: boolean): Promise<void> {
+    if (helpful) {
+      await db
+        .update(knowledgeArticles)
+        .set({
+          helpfulCount: sql`${knowledgeArticles.helpfulCount} + 1`
+        })
+        .where(eq(knowledgeArticles.id, id));
+    } else {
+      await db
+        .update(knowledgeArticles)
+        .set({
+          notHelpfulCount: sql`${knowledgeArticles.notHelpfulCount} + 1`
+        })
+        .where(eq(knowledgeArticles.id, id));
+    }
+  }
+
+  async getAllAttorneys(): Promise<Attorney[]> {
+    const attorneyList = await db.select().from(attorneys);
+    return attorneyList;
+  }
+
+  async getAttorney(id: string): Promise<Attorney | undefined> {
+    const [attorney] = await db
+      .select()
+      .from(attorneys)
+      .where(eq(attorneys.id, id));
+    
+    return attorney || undefined;
+  }
+
+  async getAvailableAttorneys(): Promise<Attorney[]> {
+    const availableAttorneys = await db
+      .select()
+      .from(attorneys)
+      .where(eq(attorneys.availability, "available"))
+      .orderBy(attorneys.activeRequestCount);
+    
+    return availableAttorneys;
+  }
+}
+
+export const storage = new DatabaseStorage();

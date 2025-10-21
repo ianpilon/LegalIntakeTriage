@@ -95,8 +95,8 @@ export default function DirectPath() {
       const response = await apiRequest("POST", "/api/requests", data);
       return response.json();
     },
-    onSuccess: () => {
-      setLocation("/request-submitted");
+    onSuccess: (data: any) => {
+      setLocation(`/request-submitted?id=${data.request.id}`);
     },
     onError: () => {
       toast({

@@ -66,11 +66,12 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage Solutions
 
-**Current Implementation: In-Memory Storage**
-- MemStorage class implementing IStorage interface provides temporary persistence
-- Maps for storing legal requests, conversation messages, knowledge articles, and attorney profiles
-- Seeded with sample data on initialization for demonstration purposes
-- Data does not persist across server restarts
+**Current Implementation: PostgreSQL Database (Migrated October 2025)**
+- DatabaseStorage class implementing IStorage interface provides persistent storage
+- All data stored in PostgreSQL via Drizzle ORM and Neon serverless driver
+- Database seeded with 3 attorneys and 4 knowledge base articles
+- Data persists across server restarts
+- Reference numbers auto-generated in format REQ-YYYY-#### with database-level uniqueness
 
 **Schema Design (Drizzle ORM)**
 - Configured for PostgreSQL via Neon serverless driver
