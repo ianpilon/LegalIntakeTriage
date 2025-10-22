@@ -75,7 +75,8 @@ function Router() {
       <Route path="/knowledge/:slug" component={ArticleDetail} />
       <Route path="/settings" component={Settings} />
 
-      <Route component={NotFound} />
+      {/* Catch-all route - shows 404 for unmatched paths */}
+      <Route path="/:rest*" component={NotFound} />
     </Switch>
     </WouterRouter>
   );
