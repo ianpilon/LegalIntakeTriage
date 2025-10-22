@@ -3,6 +3,11 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { RoleProvider } from "@/contexts/RoleContext";
+import { UserProvider } from "@/contexts/UserContext";
+import { LLMProvider } from "@/contexts/LLMContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import RoleSelection from "@/pages/RoleSelection";
 import Home from "@/pages/Home";
 import DirectPath from "@/pages/DirectPath";
 import GuidedDiscovery from "@/pages/GuidedDiscovery";
@@ -11,21 +16,61 @@ import ArticleDetail from "@/pages/ArticleDetail";
 import KnowledgeBaseAdmin from "@/pages/KnowledgeBaseAdmin";
 import MyRequests from "@/pages/MyRequests";
 import LegalInbox from "@/pages/LegalInbox";
+import RequestDetail from "@/pages/RequestDetail";
 import RequestSubmitted from "@/pages/RequestSubmitted";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/direct" component={DirectPath} />
-      <Route path="/guided" component={GuidedDiscovery} />
+      <Route path="/" component={RoleSelection} />
+
+      {/* User Routes */}
+      <Route path="/home">
+        <ProtectedRoute requiredRole="user">
+          <Home />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/direct">
+        <ProtectedRoute requiredRole="user">
+          <DirectPath />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/guided">
+        <ProtectedRoute requiredRole="user">
+          <GuidedDiscovery />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/my-requests">
+        <ProtectedRoute requiredRole="user">
+          <MyRequests />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/request-submitted">
+        <ProtectedRoute requiredRole="user">
+          <RequestSubmitted />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Admin Routes */}
+      <Route path="/legal-inbox">
+        <ProtectedRoute requiredRole="admin">
+          <LegalInbox />
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/knowledge">
+        <ProtectedRoute requiredRole="admin">
+          <KnowledgeBaseAdmin />
+        </ProtectedRoute>
+      </Route>
+
+      {/* Shared Routes (both roles can access) */}
+      <Route path="/request/:id" component={RequestDetail} />
       <Route path="/knowledge" component={KnowledgeBase} />
       <Route path="/knowledge/:slug" component={ArticleDetail} />
-      <Route path="/admin/knowledge" component={KnowledgeBaseAdmin} />
-      <Route path="/my-requests" component={MyRequests} />
-      <Route path="/legal-inbox" component={LegalInbox} />
-      <Route path="/request-submitted" component={RequestSubmitted} />
+      <Route path="/settings" component={Settings} />
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -34,10 +79,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <RoleProvider>
+        <UserProvider>
+          <LLMProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </LLMProvider>
+        </UserProvider>
+      </RoleProvider>
     </QueryClientProvider>
   );
 }

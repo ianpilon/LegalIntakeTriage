@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, ArrowLeft, Trash2, Edit, Loader2, BookOpen } from "lucide-react";
+import { Plus, ArrowLeft, Trash2, Edit, Loader2, BookOpen, Upload, FileText } from "lucide-react";
 import type { KnowledgeArticle } from "@shared/schema";
+import { UserMenu } from "@/components/UserMenu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,8 @@ export default function KnowledgeBaseAdmin() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingArticle, setEditingArticle] = useState<KnowledgeArticle | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     slug: "",
@@ -138,9 +141,123 @@ export default function KnowledgeBaseAdmin() {
       .replace(/^-|-$/g, "");
   };
 
+  const parseMarkdownFile = async (file: File) => {
+    try {
+      setIsProcessing(true);
+      const content = await file.text();
+
+      // Extract title from first H1 heading or use filename
+      const titleMatch = content.match(/^#\s+(.+)$/m);
+      const title = titleMatch ? titleMatch[1] : file.name.replace(/\.md$/, "");
+
+      // Extract first paragraph as excerpt (skip title and empty lines)
+      const lines = content.split("\n");
+      let excerpt = "";
+      let foundTitle = false;
+      for (const line of lines) {
+        if (line.startsWith("# ")) {
+          foundTitle = true;
+          continue;
+        }
+        if (foundTitle && line.trim() && !line.startsWith("#") && !line.startsWith("---")) {
+          excerpt = line.trim().substring(0, 200);
+          break;
+        }
+      }
+
+      // Estimate read time (roughly 200 words per minute)
+      const wordCount = content.split(/\s+/).length;
+      const readTime = Math.max(1, Math.ceil(wordCount / 200));
+
+      // Create article
+      const slug = generateSlug(title);
+      const articleData = {
+        title,
+        slug,
+        content,
+        excerpt: excerpt || "No description available",
+        category: "Other",
+        tags: ["imported"],
+        readTime
+      };
+
+      await createMutation.mutateAsync(articleData);
+
+      toast({
+        title: "Success!",
+        description: `"${title}" has been imported successfully`
+      });
+
+      // Navigate to the article detail page
+      setLocation(`/knowledge/${slug}`);
+    } catch (error) {
+      console.error("Error parsing markdown:", error);
+      toast({
+        title: "Error",
+        description: "Failed to import markdown file",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const mdFiles = files.filter(f => f.name.endsWith(".md"));
+
+    if (mdFiles.length === 0) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload .md (Markdown) files only",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Process all files except the last one without navigation
+    for (let i = 0; i < mdFiles.length; i++) {
+      await parseMarkdownFile(mdFiles[i]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const mdFiles = files.filter(f => f.name.endsWith(".md"));
+
+    // Process all files - navigation happens in parseMarkdownFile for the last one
+    for (const file of mdFiles) {
+      await parseMarkdownFile(file);
+    }
+
+    // Reset input
+    e.target.value = "";
+  };
+
   if (isCreating) {
     return (
       <div className="min-h-screen bg-background">
+        <div className="absolute top-4 right-4">
+          <UserMenu
+            userName="Sarah Chen"
+            userEmail="sarah.chen@iohk.io"
+            userAvatar="/admin-avatar.png"
+            role="admin"
+          />
+        </div>
         <div className="max-w-4xl mx-auto px-4 py-8">
           <Button
             variant="ghost"
@@ -154,8 +271,84 @@ export default function KnowledgeBaseAdmin() {
 
           <Card className="p-6">
             <h2 className="text-2xl font-bold mb-6">
-              {editingArticle ? "Edit Article" : "Create New Article"}
+              {editingArticle ? "Edit Knowledge Asset" : "Create New Knowledge Asset"}
             </h2>
+
+            {!editingArticle && (
+              <>
+                {/* Auto-import section */}
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold mb-4">Automatically Create New Knowledge Asset</h3>
+                  <Card
+                    className={`border-2 border-dashed transition-all ${
+                      isDragging
+                        ? "border-blue-500 bg-blue-100 dark:bg-blue-950/30"
+                        : "bg-blue-50 border-blue-300 hover:bg-blue-100 hover:border-blue-400 dark:bg-blue-950/20 dark:hover:bg-blue-950/30"
+                    } ${isProcessing ? "opacity-50 pointer-events-none" : ""}`}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                  >
+                    <div className="p-6">
+                      <div className="flex flex-col items-center justify-center text-center gap-4">
+                        <div className={`p-4 rounded-full transition-colors ${isDragging ? "bg-blue-200 dark:bg-blue-900/40" : "bg-blue-100/80 dark:bg-blue-900/30"}`}>
+                          {isProcessing ? (
+                            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                          ) : (
+                            <FileText className="w-8 h-8 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold mb-1">
+                            {isProcessing ? "Processing..." : "Import Markdown Files"}
+                          </h4>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Drag and drop .md files here, or click to browse
+                          </p>
+                          <input
+                            type="file"
+                            accept=".md"
+                            multiple
+                            onChange={handleFileInput}
+                            className="hidden"
+                            id="md-file-input"
+                            disabled={isProcessing}
+                          />
+                          <label htmlFor="md-file-input">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                              disabled={isProcessing}
+                            >
+                              <span className="cursor-pointer">
+                                <Upload className="w-4 h-4 mr-2" />
+                                Choose Files
+                              </span>
+                            </Button>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Divider with OR */}
+                <div className="relative mb-8">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-4 bg-card text-muted-foreground font-medium">
+                      OR
+                    </span>
+                  </div>
+                </div>
+
+                {/* Manual creation section */}
+                <h3 className="text-lg font-semibold mb-4">Manually Create Knowledge Asset</h3>
+              </>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
@@ -287,6 +480,14 @@ export default function KnowledgeBaseAdmin() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="absolute top-4 right-4">
+        <UserMenu
+          userName="Sarah Chen"
+          userEmail="sarah.chen@iohk.io"
+          userAvatar="/admin-avatar.png"
+          role="admin"
+        />
+      </div>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>

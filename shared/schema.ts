@@ -1,27 +1,29 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer, index } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const sessions = pgTable(
+export const sessions = sqliteTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: text("sid").primaryKey(),
+    sess: text("sess", { mode: 'json' }).notNull(),
+    expire: integer("expire", { mode: 'timestamp' }).notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table) => ({
+    expireIdx: index("IDX_session_expire").on(table.expire),
+  }),
 );
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").unique(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  profileImageUrl: text("profile_image_url"),
   role: text("role").notNull().default("requester"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  createdAt: integer("created_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`)
 });
 
 export type UpsertUser = typeof users.$inferInsert;
@@ -43,6 +45,9 @@ export type RequestCategoryType = typeof RequestCategory[keyof typeof RequestCat
 // Request status
 export const RequestStatus = {
   SUBMITTED: "submitted",
+  ACCEPTED: "accepted",
+  DECLINED: "declined",
+  AWAITING_INFO: "awaiting_info",
   TRIAGED: "triaged",
   IN_REVIEW: "in_review",
   COMPLETED: "completed"
@@ -71,9 +76,9 @@ export const TriageOutcome = {
 export type TriageOutcomeType = typeof TriageOutcome[keyof typeof TriageOutcome];
 
 // Legal requests table
-export const legalRequests = pgTable("legal_requests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").references(() => users.id),
+export const legalRequests = sqliteTable("legal_requests", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").references(() => users.id),
   referenceNumber: text("reference_number").notNull().unique(),
   category: text("category").notNull(),
   title: text("title").notNull(),
@@ -82,52 +87,53 @@ export const legalRequests = pgTable("legal_requests", {
   urgency: text("urgency").notNull().default(RequestUrgency.MEDIUM),
   urgencyReason: text("urgency_reason"),
   assignedAttorneyId: text("assigned_attorney_id"),
-  fileUrls: jsonb("file_urls").$type<string[]>().default([]),
-  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
+  fileUrls: text("file_urls", { mode: 'json' }).$type<string[]>().default(sql`'[]'`),
+  metadata: text("metadata", { mode: 'json' }).$type<Record<string, any>>().default(sql`'{}'`),
   aiSummary: text("ai_summary"),
   submitterName: text("submitter_name").notNull(),
   submitterEmail: text("submitter_email").notNull(),
   submitterTeam: text("submitter_team"),
   expectedTimeline: text("expected_timeline"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  createdAt: integer("created_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`)
 });
 
 // Conversation messages (for guided discovery)
-export const conversationMessages = pgTable("conversation_messages", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const conversationMessages = sqliteTable("conversation_messages", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   requestId: text("request_id"),
   role: text("role").notNull(), // 'user' or 'assistant'
   content: text("content").notNull(),
-  metadata: jsonb("metadata").$type<Record<string, any>>().default({}),
-  createdAt: timestamp("created_at").notNull().defaultNow()
+  metadata: text("metadata", { mode: 'json' }).$type<Record<string, any>>().default(sql`'{}'`),
+  createdAt: integer("created_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`)
 });
 
 // Knowledge base articles
-export const knowledgeArticles = pgTable("knowledge_articles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const knowledgeArticles = sqliteTable("knowledge_articles", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   title: text("title").notNull(),
   slug: text("slug").notNull().unique(),
   content: text("content").notNull(),
   excerpt: text("excerpt").notNull(),
   category: text("category").notNull(),
-  tags: jsonb("tags").$type<string[]>().default([]),
+  tags: text("tags", { mode: 'json' }).$type<string[]>().default(sql`'[]'`),
+  embedding: text("embedding", { mode: 'json' }).$type<number[]>(),
   viewCount: integer("view_count").notNull().default(0),
   helpfulCount: integer("helpful_count").notNull().default(0),
   notHelpfulCount: integer("not_helpful_count").notNull().default(0),
   readTime: integer("read_time").notNull(), // in minutes
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow()
+  createdAt: integer("created_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`)
 });
 
 // Attorneys
-export const attorneys = pgTable("attorneys", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+export const attorneys = sqliteTable("attorneys", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   title: text("title").notNull(),
   photoUrl: text("photo_url"),
-  expertise: jsonb("expertise").$type<string[]>().default([]),
+  expertise: text("expertise", { mode: 'json' }).$type<string[]>().default(sql`'[]'`),
   availability: text("availability").notNull().default("available"), // available, busy, unavailable
   activeRequestCount: integer("active_request_count").notNull().default(0)
 });

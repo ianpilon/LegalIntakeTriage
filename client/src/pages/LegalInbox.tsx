@@ -5,15 +5,19 @@ import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { 
-  ArrowLeft, 
-  Filter, 
-  CheckCircle2, 
-  UserPlus, 
+import { DeclineDialog } from "@/components/DeclineDialog";
+import { ReassignDialog } from "@/components/ReassignDialog";
+import { RequestInfoDialog } from "@/components/RequestInfoDialog";
+import {
+  ArrowLeft,
+  Filter,
+  CheckCircle2,
+  UserPlus,
   MessageSquare,
   AlertCircle,
   Clock,
-  Loader2
+  Loader2,
+  XCircle
 } from "lucide-react";
 import { RequestStatus, RequestCategory, type RequestStatusType } from "@shared/schema";
 import {
@@ -23,15 +27,124 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { UserMenu } from "@/components/UserMenu";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LegalInbox() {
   const [, setLocation] = useLocation();
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [selectedRequestForDecline, setSelectedRequestForDecline] = useState<any>(null);
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [selectedRequestForReassign, setSelectedRequestForReassign] = useState<any>(null);
+  const [requestInfoDialogOpen, setRequestInfoDialogOpen] = useState(false);
+  const [selectedRequestForInfo, setSelectedRequestForInfo] = useState<any>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: requests, isLoading } = useQuery({
     queryKey: ["/api/requests"]
+  });
+
+  const acceptRequestMutation = useMutation({
+    mutationFn: async (requestId: string) => {
+      const response = await apiRequest("POST", `/api/requests/${requestId}/accept`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
+      toast({
+        title: "Success",
+        description: "Request accepted successfully"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to accept request",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const declineRequestMutation = useMutation({
+    mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
+      const response = await apiRequest("POST", `/api/requests/${requestId}/decline`, {
+        reason
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
+      setDeclineDialogOpen(false);
+      setSelectedRequestForDecline(null);
+      toast({
+        title: "Success",
+        description: "Request declined successfully"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to decline request",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const reassignRequestMutation = useMutation({
+    mutationFn: async ({ requestId, attorneyId, notes }: { requestId: string; attorneyId: string; notes?: string }) => {
+      const response = await apiRequest("POST", `/api/requests/${requestId}/reassign`, {
+        attorneyId,
+        notes
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
+      setReassignDialogOpen(false);
+      setSelectedRequestForReassign(null);
+      toast({
+        title: "Success",
+        description: "Request reassigned successfully"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to reassign request",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const requestInfoMutation = useMutation({
+    mutationFn: async ({ requestId, message, markAsWaiting }: { requestId: string; message: string; markAsWaiting: boolean }) => {
+      const response = await apiRequest("POST", `/api/requests/${requestId}/request-info`, {
+        message,
+        markAsWaiting
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/requests"] });
+      setRequestInfoDialogOpen(false);
+      setSelectedRequestForInfo(null);
+      toast({
+        title: "Success",
+        description: "Information request sent successfully"
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send information request",
+        variant: "destructive"
+      });
+    }
   });
 
   const filteredRequests = (requests || []).filter((request: any) => {
@@ -56,17 +169,16 @@ export default function LegalInbox() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="absolute top-4 right-4">
+        <UserMenu
+          userName="Sarah Chen"
+          userEmail="sarah.chen@iohk.io"
+          userAvatar="/admin-avatar.png"
+          role="admin"
+        />
+      </div>
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => setLocation("/")}
-            className="mb-4"
-            data-testid="button-back"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Button>
           <h1 className="text-3xl font-bold mb-2">Legal Team Inbox</h1>
           <p className="text-muted-foreground">
             Triage and manage incoming legal requests
@@ -88,6 +200,8 @@ export default function LegalInbox() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value={RequestStatus.SUBMITTED}>Submitted</SelectItem>
+                  <SelectItem value={RequestStatus.ACCEPTED}>Accepted</SelectItem>
+                  <SelectItem value={RequestStatus.DECLINED}>Declined</SelectItem>
                   <SelectItem value={RequestStatus.TRIAGED}>Triaged</SelectItem>
                   <SelectItem value={RequestStatus.IN_REVIEW}>In Review</SelectItem>
                   <SelectItem value={RequestStatus.COMPLETED}>Completed</SelectItem>
@@ -179,6 +293,8 @@ export default function LegalInbox() {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setSelectedRequestForReassign(request);
+                                setReassignDialogOpen(true);
                               }}
                               data-testid={`button-reassign-${request.id}`}
                             >
@@ -190,22 +306,47 @@ export default function LegalInbox() {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setSelectedRequestForInfo(request);
+                                setRequestInfoDialogOpen(true);
                               }}
                               data-testid={`button-request-info-${request.id}`}
                             >
                               <MessageSquare className="w-4 h-4 mr-1" />
                               Request Info
                             </Button>
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              data-testid={`button-accept-${request.id}`}
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
-                              Accept
-                            </Button>
+                            {request.status === RequestStatus.SUBMITTED && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedRequestForDecline(request);
+                                    setDeclineDialogOpen(true);
+                                  }}
+                                  data-testid={`button-decline-${request.id}`}
+                                >
+                                  <XCircle className="w-4 h-4 mr-1" />
+                                  Decline
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    acceptRequestMutation.mutate(request.id);
+                                  }}
+                                  disabled={acceptRequestMutation.isPending}
+                                  data-testid={`button-accept-${request.id}`}
+                                >
+                                  {acceptRequestMutation.isPending ? (
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  )}
+                                  Accept
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -225,6 +366,54 @@ export default function LegalInbox() {
           </div>
         )}
       </div>
+
+      <DeclineDialog
+        open={declineDialogOpen}
+        onOpenChange={setDeclineDialogOpen}
+        onConfirm={(reason) => {
+          if (selectedRequestForDecline) {
+            declineRequestMutation.mutate({
+              requestId: selectedRequestForDecline.id,
+              reason
+            });
+          }
+        }}
+        isLoading={declineRequestMutation.isPending}
+        requestTitle={selectedRequestForDecline?.title}
+      />
+
+      <ReassignDialog
+        open={reassignDialogOpen}
+        onOpenChange={setReassignDialogOpen}
+        onConfirm={(attorneyId, notes) => {
+          if (selectedRequestForReassign) {
+            reassignRequestMutation.mutate({
+              requestId: selectedRequestForReassign.id,
+              attorneyId,
+              notes
+            });
+          }
+        }}
+        isLoading={reassignRequestMutation.isPending}
+        requestTitle={selectedRequestForReassign?.title}
+        currentAttorneyId={selectedRequestForReassign?.assignedAttorneyId}
+      />
+
+      <RequestInfoDialog
+        open={requestInfoDialogOpen}
+        onOpenChange={setRequestInfoDialogOpen}
+        onConfirm={(message, markAsWaiting) => {
+          if (selectedRequestForInfo) {
+            requestInfoMutation.mutate({
+              requestId: selectedRequestForInfo.id,
+              message,
+              markAsWaiting
+            });
+          }
+        }}
+        isLoading={requestInfoMutation.isPending}
+        requestTitle={selectedRequestForInfo?.title}
+      />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { KnowledgeArticleCard } from "@/components/KnowledgeArticleCard";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Search, Loader2, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { UserMenu } from "@/components/UserMenu";
+import { useRole } from "@/contexts/RoleContext";
 
 const categories = ["All", "Contracts", "Marketing", "Privacy", "Employment", "IP"];
 
@@ -13,6 +15,7 @@ export default function KnowledgeBase() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const { role } = useRole();
 
   const buildQueryKey = () => {
     const params = new URLSearchParams();
@@ -28,12 +31,24 @@ export default function KnowledgeBase() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="absolute top-4 right-4">
+        {role === "admin" ? (
+          <UserMenu
+            userName="Sarah Chen"
+            userEmail="sarah.chen@iohk.io"
+            userAvatar="/admin-avatar.png"
+            role="admin"
+          />
+        ) : (
+          <UserMenu />
+        )}
+      </div>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <Button
               variant="ghost"
-              onClick={() => setLocation("/")}
+              onClick={() => setLocation("/home")}
               data-testid="button-back"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

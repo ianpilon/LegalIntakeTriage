@@ -15,29 +15,34 @@ const timelineSteps = [
 export function RequestTimeline({ currentStatus }: RequestTimelineProps) {
   const currentIndex = timelineSteps.findIndex(step => step.status === currentStatus);
 
+  // Special handling: if status is not in the normal flow (e.g., awaiting_info, declined),
+  // we should still show "Submitted" as completed
+  const showSubmittedAsComplete = currentIndex === -1;
+
   return (
-    <div className="flex items-center justify-between" data-testid="timeline-request">
+    <div className="flex items-center w-full" data-testid="timeline-request">
       {timelineSteps.map((step, index) => {
-        const isCompleted = index <= currentIndex;
+        // Always mark submitted as completed, or use normal logic
+        const isCompleted = (index === 0 && showSubmittedAsComplete) || index <= currentIndex;
         const isCurrent = index === currentIndex;
 
         return (
-          <div key={step.status} className="flex items-center flex-1">
+          <div key={step.status} className="flex items-center" style={{ flex: index === timelineSteps.length - 1 ? '0 0 auto' : '1 1 0%' }}>
             <div className="flex flex-col items-center">
               <div className={`
-                w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all
-                ${isCompleted 
-                  ? 'bg-primary border-primary' 
+                w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                ${isCompleted
+                  ? 'bg-primary border-primary'
                   : 'bg-background border-border'
                 }
-                ${isCurrent ? 'ring-4 ring-primary/20' : ''}
+                ${isCurrent ? 'ring-2 ring-primary/20' : ''}
               `}>
                 {isCompleted && (
-                  <Check className="w-5 h-5 text-primary-foreground" />
+                  <Check className="w-3 h-3 text-primary-foreground" />
                 )}
               </div>
               <span className={`
-                text-xs mt-2 font-medium
+                text-xs mt-2 font-medium whitespace-nowrap
                 ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}
               `}>
                 {step.label}

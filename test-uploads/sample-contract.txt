@@ -1,0 +1,25 @@
+NON-DISCLOSURE AGREEMENT
+
+This Non-Disclosure Agreement ("Agreement") is entered into as of January 1, 2024.
+
+PARTIES:
+- Disclosing Party: Acme Corporation
+- Receiving Party: Widget Industries
+
+CONFIDENTIAL INFORMATION:
+The Disclosing Party agrees to share proprietary business information with the Receiving Party for the purpose of evaluating a potential business relationship.
+
+OBLIGATIONS:
+1. The Receiving Party shall maintain the confidentiality of all Confidential Information.
+2. The Receiving Party shall not disclose any Confidential Information to third parties.
+3. The Receiving Party shall use the Confidential Information solely for the Purpose.
+
+TERM:
+This Agreement shall remain in effect for a period of two (2) years from the date of execution.
+
+SIGNATURES:
+_________________________
+Acme Corporation
+
+_________________________
+Widget Industries

@@ -41,6 +41,157 @@ async function seed() {
 
   const articleData = [
     {
+      title: "IOG Social Media and External Communications Policy",
+      slug: "iog-social-media-policy",
+      content: `# IOG SOCIAL MEDIA AND EXTERNAL COMMUNICATIONS POLICY
+
+**Effective Date:** October 21, 2025
+**Document Version:** 1.0
+**Classification:** Internal - Mandatory Compliance
+
+## 1. PURPOSE AND SCOPE
+
+This Social Media and External Communications Policy establishes mandatory requirements for all IOG employees, contractors, and consultants regarding public statements about their employment and the Company.
+
+### Applies to:
+- Social media platforms
+- Personal websites and blogs
+- Podcasts and vlogs
+- Public forums and online communities
+- Professional networking sites (LinkedIn, etc.)
+- Media interviews
+- Conference presentations
+- Public speaking engagements
+
+**⚠️ IMPORTANT:** Violation may result in disciplinary action up to and including immediate termination and potential legal action.
+
+## 2. PERMITTED STATEMENTS
+
+You are **ONLY** permitted to make the following statement:
+
+✅ **"I work for Input Output Global"**
+✅ **"I am employed by Input Output Global"**
+
+### Acceptable variations:
+- "I work at Input Output Global"
+- "I am an employee of Input Output Global"
+- "My employer is Input Output Global"
+- Use of "IOG" as abbreviation
+
+### LinkedIn Profile Rules:
+- Company name: "Input Output Global"
+- Current employment status: "Present"
+- **NO job title, department, location, or description of duties**
+
+## 3. STRICTLY PROHIBITED
+
+You **CANNOT** publicly disclose:
+
+❌ Job titles, roles, or positions
+❌ Department or team assignments
+❌ Work location or office details
+❌ Job responsibilities or projects
+❌ Company products, services, or technologies
+❌ Company strategies, plans, or operations
+❌ Clients, partners, or business relationships
+❌ Financial information
+❌ Company culture, policies, or internal practices
+❌ Opinions about the Company or leadership
+❌ Work achievements or milestones
+❌ Company events or meetings
+❌ Information about colleagues
+❌ Technical details or methodologies
+❌ Any proprietary or confidential information
+❌ Speculation about Company plans
+❌ Work schedule or hours
+❌ Hiring activities or job openings
+
+### You SHALL NOT:
+- Post photos/videos from Company facilities or events
+- Share screenshots or documents
+- Tag or mention the Company beyond employment status
+- Use Company logos or branding
+- Answer questions about your work beyond confirming employment
+- Accept/provide endorsements related to Company skills
+- Write recommendations referencing Company work
+
+## 4. MANDATORY REQUIREMENTS
+
+Within **5 business days**, you must:
+
+1. ✅ Remove any existing statements that violate this Policy
+2. ✅ Update all social media profiles to comply
+3. ✅ Add disclaimer: "All posts are personal views and not affiliated with my employer"
+4. ✅ Decline media requests without prior written authorization
+5. ✅ Report any inadvertent disclosure within 24 hours
+
+### Authorization Required For:
+- Public speaking where IOG employment may be referenced
+- Industry conferences or panels
+- Publications or blogs referencing employment
+- Media interviews or press statements
+- Expert witness activities
+
+**Requires approval from:** Chief Legal Officer AND Chief Communications Officer
+
+## 5. DISCIPLINARY ACTIONS
+
+### First Violation:
+- Written warning in personnel file
+- Mandatory re-training
+- 30-day probationary period
+- Possible suspension without pay (1-5 days)
+
+### Second Violation:
+- Final written warning
+- Suspension without pay (5-10 days)
+- System access removal
+- Employment eligibility review
+
+### Third Violation or Serious Single Violation:
+- **Immediate termination**
+- Legal action including injunctive relief
+- Recovery of damages
+- Law enforcement referral if criminal
+
+## 6. POST-EMPLOYMENT
+
+This Policy remains in effect for **24 months** after leaving IOG.
+
+Former employees may only state:
+- "I previously worked for Input Output Global from [dates]"
+- General industry experience without IOG-specific details
+
+## 7. PROTECTED ACTIVITIES
+
+This Policy does not interfere with:
+- Rights to discuss wages/hours with other employees (labor law)
+- Protected concerted activity
+- Lawful subpoenas or court orders
+- Reporting illegal activity to authorities
+
+**If you have legal obligation to make statements otherwise prohibited, consult Legal Department immediately.**
+
+## 8. COMPLIANCE
+
+- Annual recertification required
+- Questions: legal@iog.io or hr@iog.io
+- **When in doubt:** Assume prohibited and seek written clarification
+
+---
+
+**Remember:** Only permitted statement is "I work for Input Output Global" - nothing more.
+
+Contact Legal Department for any questions or authorization requests.`,
+      excerpt: "Mandatory policy for all IOG employees regarding what can and cannot be said publicly about employment. Strict limitations on social media and external communications.",
+      category: "Compliance",
+      tags: ["Social Media", "Policy", "Compliance", "Communications", "IOG"],
+      readTime: 10,
+      viewCount: 0,
+      helpfulCount: 0,
+      notHelpfulCount: 0
+    },
+    {
       title: "Referential Use of Trademarks in Marketing Content",
       slug: "trademark-referential-use",
       content: `# Referential Use of Trademarks in Marketing Content

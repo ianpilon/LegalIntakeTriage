@@ -2,12 +2,14 @@ import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, Eye, ThumbsUp, ThumbsDown, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, Eye, ThumbsUp, ThumbsDown, Loader2, Download } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import type { KnowledgeArticle } from "@shared/schema";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { saveAs } from "file-saver";
 
 export default function ArticleDetail() {
   const { slug } = useParams();
@@ -38,6 +40,114 @@ export default function ArticleDetail() {
   const handleFeedback = (helpful: boolean) => {
     if (feedbackGiven) return;
     feedbackMutation.mutate(helpful);
+  };
+
+  const handleDownload = async () => {
+    if (!article) return;
+
+    try {
+      // Parse markdown content into paragraphs
+      const lines = article.content.split('\n');
+      const docParagraphs: Paragraph[] = [];
+
+      // Add title as heading
+      docParagraphs.push(
+        new Paragraph({
+          text: article.title,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { after: 200 }
+        })
+      );
+
+      // Process content lines
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine) {
+          // Empty line - add spacing
+          docParagraphs.push(new Paragraph({ text: "" }));
+          continue;
+        }
+
+        // Handle headings
+        if (trimmedLine.startsWith('### ')) {
+          docParagraphs.push(
+            new Paragraph({
+              text: trimmedLine.replace('### ', ''),
+              heading: HeadingLevel.HEADING_3,
+              spacing: { before: 200, after: 100 }
+            })
+          );
+        } else if (trimmedLine.startsWith('## ')) {
+          docParagraphs.push(
+            new Paragraph({
+              text: trimmedLine.replace('## ', ''),
+              heading: HeadingLevel.HEADING_2,
+              spacing: { before: 200, after: 100 }
+            })
+          );
+        } else if (trimmedLine.startsWith('# ')) {
+          docParagraphs.push(
+            new Paragraph({
+              text: trimmedLine.replace('# ', ''),
+              heading: HeadingLevel.HEADING_1,
+              spacing: { before: 200, after: 100 }
+            })
+          );
+        } else if (trimmedLine.startsWith('- ')) {
+          // Bullet point
+          docParagraphs.push(
+            new Paragraph({
+              text: trimmedLine.replace('- ', ''),
+              bullet: { level: 0 }
+            })
+          );
+        } else {
+          // Regular paragraph
+          // Handle bold text (**text**)
+          const parts = trimmedLine.split(/(\*\*.*?\*\*)/g);
+          const textRuns: TextRun[] = [];
+
+          for (const part of parts) {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              textRuns.push(new TextRun({ text: part.slice(2, -2), bold: true }));
+            } else if (part) {
+              textRuns.push(new TextRun({ text: part }));
+            }
+          }
+
+          docParagraphs.push(
+            new Paragraph({
+              children: textRuns.length > 0 ? textRuns : [new TextRun(trimmedLine)]
+            })
+          );
+        }
+      }
+
+      // Create document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: docParagraphs
+        }]
+      });
+
+      // Generate and save the document
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${article.slug}.docx`);
+
+      toast({
+        title: "Download started",
+        description: "Template has been downloaded as .docx"
+      });
+    } catch (error) {
+      console.error("Error generating document:", error);
+      toast({
+        title: "Download failed",
+        description: "Unable to generate document",
+        variant: "destructive"
+      });
+    }
   };
 
   if (isLoading) {
@@ -95,7 +205,7 @@ export default function ArticleDetail() {
               {article.excerpt}
             </p>
 
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-6 text-sm text-muted-foreground mb-6">
               <span className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 {article.readTime} min read
@@ -109,6 +219,16 @@ export default function ArticleDetail() {
                 {article.helpfulCount} helpful
               </span>
             </div>
+
+            <Button
+              onClick={handleDownload}
+              variant="default"
+              size="lg"
+              data-testid="button-download-template"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Template
+            </Button>
           </header>
 
           <Card className="p-8 mb-8">

@@ -9,6 +9,7 @@ import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { TriageOutcome, type TriageOutcomeType } from "@shared/schema";
+import { UserMenu } from "@/components/UserMenu";
 
 interface Message {
   role: "user" | "assistant";
@@ -52,8 +53,16 @@ export default function GuidedDiscovery() {
   });
 
   useEffect(() => {
-    if (initialInput && messages.length === 0) {
-      startConversation(initialInput);
+    if (messages.length === 0) {
+      if (initialInput) {
+        startConversation(initialInput);
+      } else {
+        // Start with a greeting if no initial input
+        setMessages([{
+          role: "assistant",
+          content: "Hi! I'm here to help you figure out if you need legal support and guide you through the process. What are you working on or what brings you here today?"
+        }]);
+      }
     }
   }, []);
 
@@ -125,11 +134,14 @@ export default function GuidedDiscovery() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="absolute top-4 right-4">
+        <UserMenu />
+      </div>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation("/")}
+            onClick={() => setLocation("/home")}
             className="mb-4"
             data-testid="button-back"
           >

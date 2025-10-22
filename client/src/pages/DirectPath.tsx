@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,22 +10,24 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { 
-  FileText, 
-  Megaphone, 
-  Handshake, 
-  Users, 
-  Shield, 
-  Lightbulb, 
+import { UserMenu } from "@/components/UserMenu";
+import { useUser } from "@/contexts/UserContext";
+import {
+  FileText,
+  Megaphone,
+  Handshake,
+  Users,
+  Shield,
+  Lightbulb,
   HelpCircle,
   ArrowLeft,
   Upload,
   CheckCircle2,
-  Loader2
+  Loader2,
+  X,
+  File
 } from "lucide-react";
 import { RequestCategory, type RequestCategoryType } from "@shared/schema";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 
 const categories = [
   {
@@ -74,17 +76,40 @@ const categories = [
 
 export default function DirectPath() {
   const [, setLocation] = useLocation();
+  const searchParams = useSearch();
   const { toast } = useToast();
+  const { user } = useUser();
   const [selectedCategory, setSelectedCategory] = useState<RequestCategoryType | null>(null);
+
+  // Auto-populate user data from their profile
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    submitterName: "",
-    submitterEmail: "",
-    submitterTeam: "",
-    urgencyReason: "",
-    isUrgent: false
+    submitterName: user.name,
+    submitterEmail: user.email,
+    submitterTeam: user.team
   });
+
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Check for category in URL params and auto-select
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    const categoryParam = params.get('category');
+    if (categoryParam && !selectedCategory) {
+      // The URL param might be in different formats:
+      // - "employment" (lowercase)
+      // - "contract_review" (with underscore)
+      // We need to match against the VALUES of RequestCategory enum
+      const normalizedParam = categoryParam.toLowerCase().replace(/-/g, '_');
+
+      // Check if this matches any of the enum values
+      if (Object.values(RequestCategory).includes(normalizedParam as RequestCategoryType)) {
+        setSelectedCategory(normalizedParam as RequestCategoryType);
+      }
+    }
+  }, [searchParams, selectedCategory]);
 
   const { data: attorneys } = useQuery({
     queryKey: ["/api/attorneys/available"]
@@ -96,7 +121,7 @@ export default function DirectPath() {
       return response.json();
     },
     onSuccess: (data: any) => {
-      setLocation(`/request-submitted?id=${data.request.id}`);
+      setLocation(`/request-submitted?id=${data.id}`);
     },
     onError: () => {
       toast({
@@ -107,14 +132,80 @@ export default function DirectPath() {
     }
   });
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      toast({
+        title: "Files added",
+        description: `${newFiles.length} file(s) added successfully`
+      });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = e.dataTransfer.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setUploadedFiles(prev => [...prev, ...newFiles]);
+      toast({
+        title: "Files added",
+        description: `${newFiles.length} file(s) added successfully`
+      });
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    toast({
+      title: "File removed",
+      description: "File has been removed from the upload list"
+    });
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
   const handleCategorySelect = (categoryId: RequestCategoryType) => {
     setSelectedCategory(categoryId);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedCategory) return;
+
+    // Convert files to data URLs for demo purposes
+    // In production, these would be uploaded to a server/cloud storage
+    const fileUrls = await Promise.all(
+      uploadedFiles.map(file => {
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(file.name); // Just store file name for now
+          };
+          reader.readAsDataURL(file);
+        });
+      })
+    );
 
     createRequestMutation.mutate({
       category: selectedCategory,
@@ -123,10 +214,12 @@ export default function DirectPath() {
       submitterName: formData.submitterName,
       submitterEmail: formData.submitterEmail,
       submitterTeam: formData.submitterTeam,
-      urgencyReason: formData.isUrgent ? formData.urgencyReason : undefined,
       status: "submitted",
-      fileUrls: [],
-      metadata: {}
+      fileUrls: fileUrls,
+      metadata: {
+        fileCount: uploadedFiles.length,
+        fileNames: uploadedFiles.map(f => f.name)
+      }
     });
   };
 
@@ -135,11 +228,14 @@ export default function DirectPath() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="absolute top-4 right-4">
+        <UserMenu />
+      </div>
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation("/")}
+            onClick={() => setLocation("/home")}
             className="mb-4"
             data-testid="button-back"
           >
@@ -219,20 +315,13 @@ export default function DirectPath() {
 
                 <div>
                   <Label htmlFor="submitter-team">Your Team</Label>
-                  <Select value={formData.submitterTeam} onValueChange={(value) => setFormData({ ...formData, submitterTeam: value })}>
-                    <SelectTrigger id="submitter-team" data-testid="select-team">
-                      <SelectValue placeholder="Select your team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="marketing">Marketing</SelectItem>
-                      <SelectItem value="product">Product</SelectItem>
-                      <SelectItem value="engineering">Engineering</SelectItem>
-                      <SelectItem value="sales">Sales</SelectItem>
-                      <SelectItem value="hr">HR</SelectItem>
-                      <SelectItem value="finance">Finance</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="submitter-team"
+                    value={formData.submitterTeam}
+                    onChange={(e) => setFormData({ ...formData, submitterTeam: e.target.value })}
+                    placeholder="Enter your team name"
+                    data-testid="input-team"
+                  />
                 </div>
 
                 <div>
@@ -262,58 +351,67 @@ export default function DirectPath() {
 
                 <div>
                   <Label>Attach Documents</Label>
-                  <Card className="p-8 border-2 border-dashed hover-elevate cursor-pointer mt-2">
-                    <div className="flex flex-col items-center justify-center text-center">
-                      <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        Drag and drop files here, or click to browse
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Supports .docx, .pdf, .xlsx, and Google Docs links
-                      </p>
-                    </div>
-                  </Card>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-muted/50 rounded-lg">
-                  <Checkbox
-                    id="is-urgent"
-                    checked={formData.isUrgent}
-                    onCheckedChange={(checked) => setFormData({ ...formData, isUrgent: checked as boolean })}
-                    data-testid="checkbox-urgent"
+                  <input
+                    type="file"
+                    id="file-upload"
+                    multiple
+                    accept=".pdf,.docx,.xlsx,.doc,.xls"
+                    className="hidden"
+                    onChange={handleFileSelect}
                   />
-                  <div className="flex-1">
-                    <Label htmlFor="is-urgent" className="cursor-pointer">
-                      This is urgent
-                    </Label>
-                    {formData.isUrgent && (
-                      <Input
-                        placeholder="Why is this urgent?"
-                        className="mt-2"
-                        value={formData.urgencyReason}
-                        onChange={(e) => setFormData({ ...formData, urgencyReason: e.target.value })}
-                        data-testid="input-urgency-reason"
-                      />
-                    )}
-                  </div>
+                  <label htmlFor="file-upload">
+                    <Card
+                      className={`p-8 border-2 border-dashed cursor-pointer mt-2 transition-all ${
+                        isDragging
+                          ? 'bg-blue-100 border-blue-500 dark:bg-blue-900/40'
+                          : 'bg-blue-50 border-blue-300 hover:bg-blue-100 hover:border-blue-400 dark:bg-blue-950/20 dark:hover:bg-blue-950/30'
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className="p-3 rounded-full bg-blue-100/80 dark:bg-blue-900/30 mb-3">
+                          <Upload className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Drag and drop files here, or click to browse
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Supports .docx, .pdf, .xlsx, and more
+                        </p>
+                      </div>
+                    </Card>
+                  </label>
+
+                  {uploadedFiles.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <Label className="text-sm font-medium">Uploaded Files ({uploadedFiles.length})</Label>
+                      {uploadedFiles.map((file, index) => (
+                        <Card key={index} className="p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <File className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveFile(index)}
+                            className="flex-shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
-
-            {assignedAttorney && (
-              <Card className="p-6 bg-muted/20">
-                <h3 className="font-semibold text-lg mb-4">Request Summary</h3>
-                <div className="space-y-3 mb-6">
-                  <div>
-                    <span className="text-sm text-muted-foreground">Will be assigned to:</span>
-                    <AttorneyCard
-                      attorney={assignedAttorney}
-                      expectedTimeline="2-3 business days"
-                    />
-                  </div>
-                </div>
-              </Card>
-            )}
 
             <div className="flex gap-3">
               <Button 

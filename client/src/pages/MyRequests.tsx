@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RequestTimeline } from "@/components/RequestTimeline";
-import { AttorneyCard } from "@/components/AttorneyCard";
-import { ArrowLeft, FileText, Clock, Loader2 } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { ArrowLeft, FileText, Clock, Loader2, Zap } from "lucide-react";
 import { RequestStatus, type RequestStatusType } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { UserMenu } from "@/components/UserMenu";
 
 export default function MyRequests() {
   const [, setLocation] = useLocation();
@@ -24,11 +25,14 @@ export default function MyRequests() {
 
   return (
     <div className="min-h-screen bg-background">
+      <div className="absolute top-4 right-4">
+        <UserMenu />
+      </div>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <Button
             variant="ghost"
-            onClick={() => setLocation("/")}
+            onClick={() => setLocation("/home")}
             className="mb-4"
             data-testid="button-back"
           >
@@ -70,10 +74,7 @@ export default function MyRequests() {
               >
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-lg">{request.title}</h3>
-                      <StatusBadge status={request.status} />
-                    </div>
+                    <h3 className="font-semibold text-lg mb-2">{request.title}</h3>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <FileText className="w-4 h-4" />
@@ -86,29 +87,45 @@ export default function MyRequests() {
                       <Badge variant="secondary">{request.category.replace("_", " ")}</Badge>
                     </div>
                   </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <StatusBadge status={request.status} />
+                    {request.expectedTimeline && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-3">
+                        <Clock className="w-4 h-4" />
+                        <span>{request.expectedTimeline}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mb-4">
                   <RequestTimeline currentStatus={request.status as RequestStatusType} />
                 </div>
-
-                {request.attorney && (
-                  <AttorneyCard
-                    attorney={request.attorney}
-                    expectedTimeline={request.expectedTimeline}
-                  />
-                )}
               </Card>
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
-            <p className="text-muted-foreground text-lg mb-4">
-              No requests found
-            </p>
-            <Button onClick={() => setLocation("/")}>
-              Create New Request
-            </Button>
+          <div className="flex justify-center py-16">
+            <Card
+              className="p-8 max-w-md cursor-pointer hover-elevate active-elevate-2 transition-all"
+              onClick={() => setLocation("/home")}
+              data-testid="card-no-requests"
+            >
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="p-4 bg-primary/10 rounded-lg">
+                  <Zap className="w-10 h-10 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-xl mb-2">No requests found</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Start by creating your first legal request
+                  </p>
+                  <Button>
+                    Create New Request
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
       </div>

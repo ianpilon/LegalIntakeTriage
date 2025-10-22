@@ -1,0 +1,36 @@
+EMPLOYMENT AGREEMENT
+
+This Employment Agreement is made between:
+
+EMPLOYER: Tech Innovations Inc.
+EMPLOYEE: Jane Smith
+
+POSITION: Senior Software Engineer
+START DATE: March 1, 2024
+
+COMPENSATION:
+Base Salary: $150,000 per year
+Benefits: Health insurance, 401(k) matching, stock options
+
+DUTIES AND RESPONSIBILITIES:
+- Design and develop software applications
+- Collaborate with cross-functional teams
+- Mentor junior developers
+- Participate in code reviews
+
+WORK SCHEDULE:
+Monday - Friday, flexible hours
+Hybrid work arrangement (3 days in office, 2 days remote)
+
+CONFIDENTIALITY:
+Employee agrees to maintain confidentiality of all proprietary information.
+
+TERMINATION:
+Either party may terminate this agreement with 30 days written notice.
+
+SIGNATURES:
+_________________________
+Tech Innovations Inc.
+
+_________________________
+Jane Smith

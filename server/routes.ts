@@ -114,6 +114,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/requests/:id/accept", async (req, res) => {
+    try {
+      const request = await storage.getLegalRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const updated = await storage.updateLegalRequest(req.params.id, {
+        status: RequestStatus.ACCEPTED
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Failed to update request" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error accepting request:", error);
+      res.status(500).json({ error: "Failed to accept request" });
+    }
+  });
+
+  app.post("/api/requests/:id/decline", async (req, res) => {
+    try {
+      const request = await storage.getLegalRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const { reason } = req.body;
+
+      const updated = await storage.updateLegalRequest(req.params.id, {
+        status: RequestStatus.DECLINED,
+        metadata: {
+          ...request.metadata,
+          declineReason: reason || "No reason provided"
+        }
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Failed to update request" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error declining request:", error);
+      res.status(500).json({ error: "Failed to decline request" });
+    }
+  });
+
+  app.post("/api/requests/:id/reassign", async (req, res) => {
+    try {
+      const request = await storage.getLegalRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const { attorneyId, notes } = req.body;
+
+      if (!attorneyId) {
+        return res.status(400).json({ error: "Attorney ID is required" });
+      }
+
+      const attorney = await storage.getAttorney(attorneyId);
+      if (!attorney) {
+        return res.status(404).json({ error: "Attorney not found" });
+      }
+
+      const updated = await storage.updateLegalRequest(req.params.id, {
+        assignedAttorneyId: attorneyId,
+        metadata: {
+          ...request.metadata,
+          reassignmentHistory: [
+            ...(request.metadata?.reassignmentHistory || []),
+            {
+              from: request.assignedAttorneyId,
+              to: attorneyId,
+              notes: notes || undefined,
+              timestamp: new Date().toISOString()
+            }
+          ]
+        }
+      });
+
+      if (!updated) {
+        return res.status(404).json({ error: "Failed to update request" });
+      }
+
+      res.json({ ...updated, attorney });
+    } catch (error) {
+      console.error("Error reassigning request:", error);
+      res.status(500).json({ error: "Failed to reassign request" });
+    }
+  });
+
+  app.post("/api/requests/:id/request-info", async (req, res) => {
+    try {
+      const request = await storage.getLegalRequest(req.params.id);
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const { message, markAsWaiting } = req.body;
+
+      if (!message || !message.trim()) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      // Store the previous status so we can restore it later
+      const previousStatus = request.status;
+
+      // Create a conversation message for the info request
+      const infoRequestMessage = await storage.createConversationMessage({
+        requestId: request.id,
+        role: "assistant",
+        content: message,
+        metadata: {
+          type: "info_request",
+          previousStatus,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      // Update request status if markAsWaiting is true
+      let updated = request;
+      if (markAsWaiting) {
+        const updatedRequest = await storage.updateLegalRequest(req.params.id, {
+          status: RequestStatus.AWAITING_INFO,
+          metadata: {
+            ...request.metadata,
+            previousStatus,
+            infoRequestedAt: new Date().toISOString()
+          }
+        });
+
+        if (updatedRequest) {
+          updated = updatedRequest;
+        }
+      }
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error requesting info:", error);
+      res.status(500).json({ error: "Failed to request information" });
+    }
+  });
+
   app.post("/api/analyze-confidence", async (req, res) => {
     try {
       const { input } = req.body;
@@ -142,30 +289,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
 
         const userMessage = message.content;
-        const stopWords = ["the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is", "are", "was", "were", "been", "be", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "i", "you", "we", "they", "it", "my", "our", "your"];
-        const searchWords = userMessage
-          .toLowerCase()
-          .replace(/[^\w\s]/g, " ")
-          .split(/\s+/)
-          .filter(word => word.length >= 2 && !stopWords.includes(word));
-        
+
         let relevantArticles: Array<{ title: string; excerpt: string; content: string; category: string }> = [];
-        if (searchWords.length > 0) {
-          const searchQuery = searchWords.join(" ");
-          console.log(`[KB Search] User message: "${userMessage}"`);
-          console.log(`[KB Search] Extracted words: ${JSON.stringify(searchWords)}`);
-          console.log(`[KB Search] Search query: "${searchQuery}"`);
-          const articles = await storage.searchKnowledgeArticles(searchQuery);
-          console.log(`[KB Search] Found ${articles.length} articles`);
+
+        // Use semantic search with embeddings
+        try {
+          console.log(`[Semantic Search] User message: "${userMessage}"`);
+          console.log(`[Semantic Search] Generating query embedding...`);
+
+          const { generateEmbedding } = await import("./openai");
+          const queryEmbedding = await generateEmbedding(userMessage);
+
+          console.log(`[Semantic Search] Searching for similar articles...`);
+          const articles = await storage.semanticSearchKnowledgeArticles(queryEmbedding, 5);
+
+          console.log(`[Semantic Search] Found ${articles.length} articles`);
           if (articles.length > 0) {
-            console.log(`[KB Search] Top articles: ${articles.slice(0, 2).map(a => a.title).join(", ")}`);
+            console.log(`[Semantic Search] All results:`);
+            articles.forEach(a => {
+              console.log(`  - ${a.title} (similarity: ${(a.similarity * 100).toFixed(1)}%)`);
+            });
           }
-          relevantArticles = articles.slice(0, 2).map(article => ({
-            title: article.title,
-            excerpt: article.excerpt,
-            content: article.content,
-            category: article.category
-          }));
+
+          // Only use articles with good similarity (55%+ threshold)
+          // AI confidence check provides additional validation layer
+          const SIMILARITY_THRESHOLD = 0.55;
+          const relevantFilteredArticles = articles.filter(a => a.similarity >= SIMILARITY_THRESHOLD);
+
+          if (relevantFilteredArticles.length > 0) {
+            console.log(`[Semantic Search] ${relevantFilteredArticles.length} articles above ${(SIMILARITY_THRESHOLD * 100)}% threshold`);
+            const topArticle = relevantFilteredArticles[0];
+            console.log(`[Semantic Search] Top article: "${topArticle.title}" (${(topArticle.similarity * 100).toFixed(1)}% similarity)`);
+
+            // AI CONFIDENCE CHECK: Can this document actually answer the user's question?
+            console.log(`[AI Confidence Check] Evaluating if "${topArticle.title}" can answer the question...`);
+            const { canDocumentAnswerQuestion } = await import("./openai");
+            const confidenceCheck = await canDocumentAnswerQuestion(
+              userMessage,
+              topArticle.title,
+              topArticle.excerpt
+            );
+
+            console.log(`[AI Confidence Check] Result: ${confidenceCheck.canAnswer ? 'YES' : 'NO'} (${confidenceCheck.confidence}% confidence)`);
+            console.log(`[AI Confidence Check] Reasoning: ${confidenceCheck.reasoning}`);
+
+            if (confidenceCheck.canAnswer && confidenceCheck.confidence >= 70) {
+              // Document can answer with high confidence - use it
+              console.log(`[AI Confidence Check] ✓ Document approved - proceeding with knowledge extraction`);
+              relevantArticles = relevantFilteredArticles.map(article => ({
+                title: article.title,
+                excerpt: article.excerpt,
+                content: article.content,
+                category: article.category
+              }));
+            } else {
+              // Document cannot answer adequately - route to intake
+              console.log(`[AI Confidence Check] ✗ Document rejected - routing to intake instead`);
+              relevantArticles = [];
+            }
+          } else {
+            console.log(`[Semantic Search] No articles above ${(SIMILARITY_THRESHOLD * 100)}% threshold - will route to intake`);
+            if (articles.length > 0) {
+              console.log(`[Semantic Search] Best match was "${articles[0].title}" at ${(articles[0].similarity * 100).toFixed(1)}% (below threshold)`);
+            }
+            relevantArticles = [];
+          }
+        } catch (error) {
+          console.error(`[Semantic Search] Error:`, error);
+          // Fallback to keyword search if semantic search fails
+          const stopWords = ["the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "is", "are", "was", "were", "been", "be", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "i", "you", "we", "they", "it", "my", "our", "your"];
+          const searchWords = userMessage
+            .toLowerCase()
+            .replace(/[^\w\s]/g, " ")
+            .split(/\s+/)
+            .filter(word => word.length >= 2 && !stopWords.includes(word));
+
+          if (searchWords.length > 0) {
+            const searchQuery = searchWords.join(" ");
+            console.log(`[KB Search - Fallback] Search query: "${searchQuery}"`);
+            const articles = await storage.searchKnowledgeArticles(searchQuery);
+            console.log(`[KB Search - Fallback] Found ${articles.length} articles`);
+            relevantArticles = articles.slice(0, 2).map(article => ({
+              title: article.title,
+              excerpt: article.excerpt,
+              content: article.content,
+              category: article.category
+            }));
+          }
         }
 
         const aiResponse = await generateConversationResponse(conversationHistory, relevantArticles);
@@ -263,6 +473,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/knowledge", async (req, res) => {
     try {
       const article = await storage.createKnowledgeArticle(req.body);
+
+      // Generate embedding for semantic search
+      try {
+        const { generateEmbedding } = await import("./openai");
+        // Include full content for better semantic search (Ollama can handle large texts)
+        const textForEmbedding = `${article.title}\n\n${article.excerpt}\n\n${article.content}`;
+        const embedding = await generateEmbedding(textForEmbedding);
+        await storage.updateArticleEmbedding(article.id, embedding);
+        console.log(`[Embedding] Generated for article: ${article.title}`);
+      } catch (embeddingError) {
+        console.error("Error generating embedding for new article:", embeddingError);
+        // Don't fail the request if embedding generation fails
+      }
+
       res.status(201).json(article);
     } catch (error) {
       console.error("Error creating article:", error);

@@ -19,7 +19,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, desc, sql, or, ilike } from "drizzle-orm";
+import { eq, desc, sql, or, like } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -40,6 +40,7 @@ export interface IStorage {
   searchKnowledgeArticles(query: string): Promise<KnowledgeArticle[]>;
   createKnowledgeArticle(article: InsertKnowledgeArticle): Promise<KnowledgeArticle>;
   updateKnowledgeArticle(id: string, updates: Partial<KnowledgeArticle>): Promise<KnowledgeArticle | undefined>;
+  updateArticleEmbedding(id: string, embedding: number[]): Promise<void>;
   deleteKnowledgeArticle(id: string): Promise<void>;
   updateArticleStats(id: string, helpful: boolean): Promise<void>;
   
@@ -402,8 +403,15 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(knowledgeArticles.id, id))
       .returning();
-    
+
     return updated || undefined;
+  }
+
+  async updateArticleEmbedding(id: string, embedding: number[]): Promise<void> {
+    await db
+      .update(knowledgeArticles)
+      .set({ embedding })
+      .where(eq(knowledgeArticles.id, id));
   }
 
   async deleteKnowledgeArticle(id: string): Promise<void> {
@@ -413,18 +421,69 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchKnowledgeArticles(query: string): Promise<KnowledgeArticle[]> {
-    const articles = await db
-      .select()
-      .from(knowledgeArticles)
-      .where(
-        or(
-          ilike(knowledgeArticles.title, `%${query}%`),
-          ilike(knowledgeArticles.excerpt, `%${query}%`),
-          ilike(knowledgeArticles.content, `%${query}%`)
-        )
-      );
-    
-    return articles;
+    // This method now supports semantic search
+    // It will be called from routes with semantic flag
+    const lowerQuery = query.toLowerCase();
+    const searchTerms = lowerQuery.split(/\s+/).filter(term => term.length > 2);
+
+    if (searchTerms.length === 0) {
+      return [];
+    }
+
+    // Search for articles that contain ANY of the search terms
+    const allArticles = await db.select().from(knowledgeArticles);
+
+    const scoredArticles = allArticles.map(article => {
+      let score = 0;
+      const articleText = `${article.title} ${article.excerpt} ${article.content} ${article.tags.join(' ')}`.toLowerCase();
+
+      searchTerms.forEach(term => {
+        // Count occurrences of each term
+        const titleMatches = (article.title.toLowerCase().match(new RegExp(term, 'g')) || []).length;
+        const excerptMatches = (article.excerpt.toLowerCase().match(new RegExp(term, 'g')) || []).length;
+        const tagsMatches = article.tags.join(' ').toLowerCase().includes(term) ? 1 : 0;
+        const contentMatches = (article.content.toLowerCase().match(new RegExp(term, 'g')) || []).length;
+
+        // Weight title and tags matches higher
+        score += titleMatches * 10;
+        score += tagsMatches * 5;
+        score += excerptMatches * 3;
+        score += contentMatches * 1;
+      });
+
+      return { article, score };
+    });
+
+    // Return articles with score > 0, sorted by score
+    return scoredArticles
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.article);
+  }
+
+  async semanticSearchKnowledgeArticles(queryEmbedding: number[], limit: number = 5): Promise<Array<KnowledgeArticle & { similarity: number }>> {
+    const allArticles = await db.select().from(knowledgeArticles);
+
+    // Filter articles that have embeddings
+    const articlesWithEmbeddings = allArticles.filter(article => article.embedding && article.embedding.length > 0);
+
+    if (articlesWithEmbeddings.length === 0) {
+      console.log("[Semantic Search] No articles with embeddings found");
+      return [];
+    }
+
+    // Calculate cosine similarity for each article
+    const { cosineSimilarity } = await import("./openai");
+
+    const scoredArticles = articlesWithEmbeddings.map(article => {
+      const similarity = cosineSimilarity(queryEmbedding, article.embedding!);
+      return { ...article, similarity };
+    });
+
+    // Sort by similarity (highest first) and return top results
+    return scoredArticles
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit);
   }
 
   async updateArticleStats(id: string, helpful: boolean): Promise<void> {

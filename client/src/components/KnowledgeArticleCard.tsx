@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ThumbsUp } from "lucide-react";
+import { Clock } from "lucide-react";
 import type { KnowledgeArticle } from "@shared/schema";
 
 interface KnowledgeArticleCardProps {
@@ -9,12 +9,8 @@ interface KnowledgeArticleCardProps {
 }
 
 export function KnowledgeArticleCard({ article, onClick }: KnowledgeArticleCardProps) {
-  const helpfulPercentage = article.helpfulCount + article.notHelpfulCount > 0
-    ? Math.round((article.helpfulCount / (article.helpfulCount + article.notHelpfulCount)) * 100)
-    : null;
-
   return (
-    <Card 
+    <Card
       onClick={onClick}
       className="p-6 cursor-pointer hover-elevate active-elevate-2 transition-all"
       data-testid={`card-article-${article.id}`}
@@ -28,15 +24,9 @@ export function KnowledgeArticleCard({ article, onClick }: KnowledgeArticleCardP
             <Clock className="w-3 h-3" />
             {article.readTime} min
           </span>
-          {helpfulPercentage !== null && (
-            <span className="flex items-center gap-1">
-              <ThumbsUp className="w-3 h-3" />
-              {helpfulPercentage}%
-            </span>
-          )}
         </div>
       </div>
-      
+
       <h3 className="font-semibold text-lg mb-2 leading-tight">{article.title}</h3>
       <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{article.excerpt}</p>
     </Card>
