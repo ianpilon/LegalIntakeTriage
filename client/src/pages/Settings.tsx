@@ -37,6 +37,7 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState(config?.apiKey || "");
   const [model, setModel] = useState(config?.model || "");
   const [endpoint, setEndpoint] = useState(config?.endpoint || "");
+  const [backendUrl, setBackendUrl] = useState(config?.backendUrl || "");
 
   const initials = userName
     .split(" ")
@@ -99,7 +100,8 @@ export default function Settings() {
       provider: llmProvider as LLMProvider,
       apiKey,
       model: model || undefined,
-      endpoint: endpoint || undefined
+      endpoint: endpoint || undefined,
+      backendUrl: backendUrl || undefined
     });
 
     toast({
@@ -114,6 +116,7 @@ export default function Settings() {
     setApiKey("");
     setModel("");
     setEndpoint("");
+    setBackendUrl("");
     toast({
       title: "LLM configuration cleared",
       description: "Your AI provider settings have been removed"
@@ -306,6 +309,19 @@ export default function Settings() {
                 onChange={(e) => setModel(e.target.value)}
                 placeholder="e.g., gpt-4, claude-3-5-sonnet-20241022"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="backend-url">Backend API URL</Label>
+              <Input
+                id="backend-url"
+                value={backendUrl}
+                onChange={(e) => setBackendUrl(e.target.value)}
+                placeholder="e.g., https://your-ngrok-url.ngrok-free.dev or http://localhost:5000"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter the URL where your backend server is running. Leave empty to use relative URLs (same domain as frontend).
+              </p>
             </div>
 
             {llmProvider === "azure-openai" && (

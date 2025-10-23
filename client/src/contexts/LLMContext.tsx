@@ -7,6 +7,7 @@ export interface LLMConfig {
   apiKey: string;
   model?: string;
   endpoint?: string; // For Azure OpenAI
+  backendUrl?: string; // Backend API base URL
 }
 
 interface LLMContextType {
@@ -14,6 +15,7 @@ interface LLMContextType {
   updateConfig: (config: Partial<LLMConfig>) => void;
   clearConfig: () => void;
   isConfigured: boolean;
+  getBackendUrl: () => string;
 }
 
 const LLMContext = createContext<LLMContextType | undefined>(undefined);
@@ -88,8 +90,13 @@ export function LLMProvider({ children }: { children: ReactNode }) {
 
   const isConfigured = !!(config?.provider && config?.apiKey);
 
+  const getBackendUrl = () => {
+    // Return configured backend URL or default to empty string (relative URLs)
+    return config?.backendUrl || "";
+  };
+
   return (
-    <LLMContext.Provider value={{ config, updateConfig, clearConfig, isConfigured }}>
+    <LLMContext.Provider value={{ config, updateConfig, clearConfig, isConfigured, getBackendUrl }}>
       {children}
     </LLMContext.Provider>
   );
