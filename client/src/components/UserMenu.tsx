@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SystemStatusIndicator } from "@/components/SystemStatusIndicator";
 
 interface UserMenuProps {
   userName?: string;
@@ -34,15 +35,17 @@ export function UserMenu({
     .slice(0, 2);
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="outline-none focus:ring-2 focus:ring-primary rounded-full">
-        <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
-          <AvatarImage src={userAvatar} alt={userName} />
-          <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
+    <div className="flex items-center gap-3">
+      <SystemStatusIndicator />
+      <DropdownMenu>
+        <DropdownMenuTrigger className="outline-none focus:ring-2 focus:ring-primary rounded-full">
+          <Avatar className="h-10 w-10 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+            <AvatarImage src={userAvatar} alt={userName} />
+            <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+        </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
@@ -86,6 +89,7 @@ export function UserMenu({
           <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+    </div>
   );
 }

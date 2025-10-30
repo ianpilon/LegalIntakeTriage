@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { RoleProvider } from "@/contexts/RoleContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { LLMProvider } from "@/contexts/LLMContext";
+import { SystemStatusProvider } from "@/contexts/SystemStatusContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import RoleSelection from "@/pages/RoleSelection";
 import Home from "@/pages/Home";
@@ -88,10 +89,12 @@ function App() {
       <RoleProvider>
         <UserProvider>
           <LLMProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Router />
-            </TooltipProvider>
+            <SystemStatusProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Router />
+              </TooltipProvider>
+            </SystemStatusProvider>
           </LLMProvider>
         </UserProvider>
       </RoleProvider>

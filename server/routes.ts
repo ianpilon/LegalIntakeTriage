@@ -16,7 +16,16 @@ import {
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
+
+  // Health check endpoint
+  app.get("/api/health", async (req, res) => {
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
   app.post("/api/requests", async (req, res) => {
     try {
       const validatedData = insertLegalRequestSchema.parse(req.body);
